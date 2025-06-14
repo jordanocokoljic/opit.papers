@@ -103,12 +103,29 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id, err := uuid.NewV4()
+	if err != nil {
+		log.Error(
+			"failed to generate id for new identity",
+			"err", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
 	_, err = s.db.Exec(
 		r.Context(),
 		`
-		insert into identity (username, password)
-		values ($1, $2)
+		insert into identity (id, username, password)
+		values ($1, $2, $3)
 		`,
+		id,
 		body.Username,
 		hash,
 	)
@@ -128,7 +145,11 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	safeRespondJSON(
+		log, w,
+		http.StatusCreated,
+		map[string]string{"id": id.String()},
+	)
 }
 
 func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
