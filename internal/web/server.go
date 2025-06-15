@@ -490,13 +490,30 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 	token := randomURLSafe(32)
 	expiresIn := s.config.ResetLifetime
 
+	mac := hmac.New(sha256.New, s.hmacKey)
+	_, err = mac.Write([]byte(token))
+	if err != nil {
+		s.log.Error(
+			"failed to write token to hmac",
+			"error", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
 	_, err = s.db.Exec(
 		r.Context(),
 		`
 		insert into reset (token, identity, expires)
 		values ($1, (select id from identity where username = $2), $3)
 		`,
-		token,
+		base64.RawStdEncoding.EncodeToString(mac.Sum(nil)),
 		body.Username,
 		time.Now().Add(expiresIn).UTC(),
 	)
@@ -598,7 +615,24 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 
 	defer tx.Rollback(r.Context())
 
-	token := r.PathValue("reset")
+	mac := hmac.New(sha256.New, s.hmacKey)
+	_, err = mac.Write([]byte(r.PathValue("reset")))
+	if err != nil {
+		s.log.Error(
+			"failed to write token to hmac",
+			"error", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
+	tokenHash := base64.RawStdEncoding.EncodeToString(mac.Sum(nil))
 
 	_, err = tx.Exec(
 		r.Context(),
@@ -609,7 +643,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 		where reset.identity = identity.id
 		  and reset.token = $1
 		`,
-		token,
+		tokenHash,
 		hash,
 	)
 
@@ -636,7 +670,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 		where session.identity = reset.identity
 		  and reset.token = $1
 		`,
-		token,
+		tokenHash,
 	)
 
 	if err != nil {
@@ -661,7 +695,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 		from reset
 		where token = $1
 		`,
-		token,
+		tokenHash,
 	)
 
 	if err != nil {
