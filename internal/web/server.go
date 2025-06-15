@@ -302,11 +302,11 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 	row := s.db.QueryRow(
 		r.Context(),
 		`
-		select identity, extract(epoch from (expires - now()))::int
+		select identity.id, extract(epoch from (session.expires - now()))::int
 		from session
-				join identity on session.identity = identity.id
-		where expires > now()
-		  and token = $1
+				 join identity on session.identity = identity.id
+		where session.expires > now()
+		  and session.token = $1
 		`,
 		r.PathValue("session"),
 	)
@@ -535,10 +535,10 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		`
 		update identity
-		set password = $2
+		set identity.password = $2
 		from reset
 		where reset.identity = identity.id
-		  and token = $1
+		  and reset.token = $1
 		`,
 		token,
 		hash,
