@@ -537,7 +537,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		`
 		update identity
-		set identity.password = $2
+		set password = $2
 		from reset
 		where reset.identity = identity.id
 		  and reset.token = $1
