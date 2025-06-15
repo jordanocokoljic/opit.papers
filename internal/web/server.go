@@ -18,14 +18,16 @@ import (
 )
 
 type Server struct {
-	log *slog.Logger
-	db  *pgxpool.Pool
+	log    *slog.Logger
+	db     *pgxpool.Pool
+	config ServerConfiguration
 }
 
-func NewServer(log *slog.Logger, db *pgxpool.Pool) *Server {
+func NewServer(log *slog.Logger, db *pgxpool.Pool, config ServerConfiguration) *Server {
 	return &Server{
-		log: log,
-		db:  db,
+		log:    log,
+		db:     db,
+		config: config,
 	}
 }
 
@@ -254,7 +256,7 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := randomURLSafe(24)
-	expiresIn := time.Hour * 8
+	expiresIn := s.config.SessionLifetime
 
 	_, err = s.db.Exec(
 		r.Context(),
@@ -419,7 +421,7 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := randomURLSafe(32)
-	expiresIn := time.Minute * 15
+	expiresIn := s.config.ResetLifetime
 
 	_, err = s.db.Exec(
 		r.Context(),

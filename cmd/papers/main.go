@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	uuid "github.com/jackc/pgx-gofrs-uuid"
 	"github.com/jackc/pgx/v5"
@@ -53,7 +54,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	server := web.NewServer(logger, pool)
+	serverConfig := web.DefaultServerConfiguration()
+
+	if envSessionLifetime, ok := os.LookupEnv("PAPERS_SESSION_LIFETIME"); ok {
+		lifetime, err := time.ParseDuration(envSessionLifetime)
+		if err != nil {
+			logger.Error(
+				"failed to parse provided session lifetime",
+				"error", err.Error(),
+			)
+
+			os.Exit(1)
+		}
+
+		serverConfig.SessionLifetime = lifetime
+	}
+
+	if envResetLifetime, ok := os.LookupEnv("PAPERS_RESET_LIFETIME"); ok {
+		lifetime, err := time.ParseDuration(envResetLifetime)
+		if err != nil {
+			logger.Error(
+				"failed to parse provided reset lifetime",
+				"error", err.Error(),
+			)
+
+			os.Exit(1)
+		}
+
+		serverConfig.ResetLifetime = lifetime
+	}
+
+	server := web.NewServer(logger, pool, serverConfig)
 
 	mux := http.NewServeMux()
 	server.Bind(mux)
