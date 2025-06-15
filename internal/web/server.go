@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jordanocokoljic/argon2id"
 )
@@ -133,6 +134,17 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "identity_username_key" {
+			safeRespondJSON(
+				log, w,
+				http.StatusConflict,
+				map[string]string{"error": "username already registered"},
+			)
+
+			return
+		}
+
 		log.Error(
 			"failed to store new identity in database",
 			"error", err.Error(),
