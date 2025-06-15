@@ -286,6 +286,7 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 		log, w,
 		http.StatusOK,
 		map[string]any{
+			"id":      id.String(),
 			"session": token,
 			"expires": expiresIn.Seconds(),
 		},
