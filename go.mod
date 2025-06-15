@@ -1,4 +1,4 @@
-module github.com/jordanocokoljic/papers
+module github.com/jordanocokoljic/opit.papers
 
 go 1.24.4
 

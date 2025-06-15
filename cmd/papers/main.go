@@ -11,7 +11,7 @@ import (
 	uuid "github.com/jackc/pgx-gofrs-uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jordanocokoljic/papers/internal/web"
+	"github.com/jordanocokoljic/opit.papers/internal/web"
 )
 
 func main() {
