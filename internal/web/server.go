@@ -239,7 +239,7 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, pgx.ErrNoRows) {
 			safeRespondJSON(
 				log, w,
-				http.StatusNotFound,
+				http.StatusUnprocessableEntity,
 				map[string]string{"error": "no identity registered with provided username"},
 			)
 
@@ -519,6 +519,21 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) &&
+			pgErr.Code == "23502" &&
+			pgErr.ColumnName == "identity" &&
+			pgErr.TableName == "reset" {
+
+			safeRespondJSON(
+				log, w,
+				http.StatusUnprocessableEntity,
+				map[string]string{"error": "no identity registered with provided username"},
+			)
+
+			return
+		}
+
 		log.Error(
 			"failed to store new reset in database",
 			"error", err.Error(),
