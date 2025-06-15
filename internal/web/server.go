@@ -2,7 +2,9 @@ package web
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -19,16 +21,18 @@ import (
 )
 
 type Server struct {
-	log    *slog.Logger
-	db     *pgxpool.Pool
-	config ServerConfiguration
+	log     *slog.Logger
+	db      *pgxpool.Pool
+	hmacKey []byte
+	config  ServerConfiguration
 }
 
-func NewServer(log *slog.Logger, db *pgxpool.Pool, config ServerConfiguration) *Server {
+func NewServer(log *slog.Logger, db *pgxpool.Pool, hmacKey []byte, config ServerConfiguration) *Server {
 	return &Server{
-		log:    log,
-		db:     db,
-		config: config,
+		log:     log,
+		db:      db,
+		hmacKey: hmacKey,
+		config:  config,
 	}
 }
 
@@ -270,13 +274,30 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 	token := randomURLSafe(24)
 	expiresIn := s.config.SessionLifetime
 
+	mac := hmac.New(sha256.New, s.hmacKey)
+	_, err = mac.Write([]byte(token))
+	if err != nil {
+		s.log.Error(
+			"failed to write token to hmac",
+			"error", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
 	_, err = s.db.Exec(
 		r.Context(),
 		`
 		insert into session (token, identity, expires)
 		values ($1, $2, $3)
 		`,
-		token,
+		base64.RawStdEncoding.EncodeToString(mac.Sum(nil)),
 		id,
 		time.Now().Add(expiresIn).UTC(),
 	)
@@ -313,6 +334,23 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		"endpoint", r.URL.Path,
 	)
 
+	mac := hmac.New(sha256.New, s.hmacKey)
+	_, err := mac.Write([]byte(r.PathValue("session")))
+	if err != nil {
+		s.log.Error(
+			"failed to write token to hmac",
+			"error", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
 	row := s.db.QueryRow(
 		r.Context(),
 		`
@@ -322,7 +360,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		where session.expires > now()
 		  and session.token = $1
 		`,
-		r.PathValue("session"),
+		base64.RawStdEncoding.EncodeToString(mac.Sum(nil)),
 	)
 
 	var (
@@ -330,7 +368,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		expiresIn int
 	)
 
-	err := row.Scan(&id, &expiresIn)
+	err = row.Scan(&id, &expiresIn)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			safeRespondJSON(
@@ -366,14 +404,31 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 		"endpoint", r.URL.Path,
 	)
 
-	_, err := s.db.Exec(
+	mac := hmac.New(sha256.New, s.hmacKey)
+	_, err := mac.Write([]byte(r.PathValue("session")))
+	if err != nil {
+		s.log.Error(
+			"failed to write token to hmac",
+			"error", err.Error(),
+		)
+
+		safeRespondJSON(
+			log, w,
+			http.StatusInternalServerError,
+			map[string]string{"error": "an internal server error occurred"},
+		)
+
+		return
+	}
+
+	_, err = s.db.Exec(
 		r.Context(),
 		`
 		delete
 		from session
 		where token = $1;
 		`,
-		r.PathValue("session"),
+		base64.RawStdEncoding.EncodeToString(mac.Sum(nil)),
 	)
 
 	if err != nil {
