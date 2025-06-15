@@ -20,7 +20,6 @@ func main() {
 	if !ok {
 		logger.Error(
 			"required environment variable was not set",
-			"code", "STARTUP_MISSING_REQUIRED_ENV_VAR",
 			"variable", "PAPERS_PG_URL",
 		)
 
@@ -31,7 +30,6 @@ func main() {
 	if err != nil {
 		logger.Error(
 			"failed to parse postgres connection string",
-			"code", "STARTUP_PG_URL_PARSE_FAILURE",
 			"error", err.Error(),
 		)
 
@@ -47,7 +45,6 @@ func main() {
 	if err != nil {
 		logger.Error(
 			"failed to connect to postgres database",
-			"code", "STARTUP_PG_CONNECTION_FAILURE",
 			"error", err.Error(),
 		)
 
