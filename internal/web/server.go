@@ -52,8 +52,8 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var body struct {
-		Username string
-		Password string
+		Username *string
+		Password *string
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -63,50 +63,84 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
 			map[string]string{
-				"error": "request body could not be decoded",
+				"error":       "INVALID_BODY",
+				"description": "request body could not be decoded",
 			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Username) == "" {
-		safeRespondJSON(
+	if body.Username == nil {
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
-			map[string]string{"error": "username cannot be empty"},
+			map[string]any{
+				"error":       "MISSING_FIELD",
+				"description": "a required field was not provided",
+				"details": map[string]any{
+					"field": "username",
+				},
+			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Password) == "" {
-		safeRespondJSON(
+	if strings.TrimSpace(*body.Username) == "" {
+		respondJSON(
 			log, w,
-			http.StatusBadRequest,
-			map[string]string{"error": "password cannot be empty"},
+			http.StatusUnprocessableEntity,
+			map[string]any{
+				"error":       "INVALID_USERNAME",
+				"description": "the provided username was invalid",
+			},
 		)
 
 		return
 	}
 
-	hash, err := argon2id.GenerateFromPassword([]byte(body.Password), argon2id.OWASPMinimumParameters())
+	if body.Password == nil {
+		respondJSON(
+			log, w,
+			http.StatusBadRequest,
+			map[string]any{
+				"error":       "MISSING_FIELD",
+				"description": "a required field was not provided",
+				"details": map[string]any{
+					"field": "password",
+				},
+			},
+		)
+
+		return
+	}
+
+	if strings.TrimSpace(*body.Password) == "" {
+		respondJSON(
+			log, w,
+			http.StatusUnprocessableEntity,
+			map[string]string{
+				"error":       "INVALID_PASSWORD",
+				"description": "the provided password was invalid",
+			},
+		)
+
+		return
+	}
+
+	hash, err := argon2id.GenerateFromPassword([]byte(*body.Password), argon2id.OWASPMinimumParameters())
 	if err != nil {
 		log.Error(
 			"failed to generate hash from password",
 			"err", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -117,12 +151,7 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 			"err", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -140,10 +169,13 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "identity_username_key" {
-			safeRespondJSON(
+			respondJSON(
 				log, w,
 				http.StatusConflict,
-				map[string]string{"error": "username already registered"},
+				map[string]string{
+					"error":       "USERNAME_TAKEN",
+					"description": "the provided username is already in registered",
+				},
 			)
 
 			return
@@ -154,16 +186,11 @@ func (s *Server) postIdentities(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
-	safeRespondJSON(
+	respondJSON(
 		log, w,
 		http.StatusCreated,
 		map[string]string{"id": id.String()},
@@ -177,8 +204,8 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var body struct {
-		Username string
-		Password string
+		Username *string
+		Password *string
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -188,32 +215,71 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
 			map[string]string{
-				"error": "request body could not be decoded",
+				"error":       "INVALID_BODY",
+				"description": "request body could not be decoded",
 			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Username) == "" {
-		safeRespondJSON(
+	if body.Username == nil {
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
-			map[string]string{"error": "username cannot be empty"},
+			map[string]any{
+				"error":       "MISSING_FIELD",
+				"description": "a required field was not provided",
+				"details": map[string]any{
+					"field": "username",
+				},
+			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Password) == "" {
-		safeRespondJSON(
+	if strings.TrimSpace(*body.Username) == "" {
+		respondJSON(
+			log, w,
+			http.StatusUnprocessableEntity,
+			map[string]any{
+				"error":       "INVALID_USERNAME",
+				"description": "the provided username was invalid",
+			},
+		)
+
+		return
+	}
+
+	if body.Password == nil {
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
-			map[string]string{"error": "password cannot be empty"},
+			map[string]any{
+				"error":       "MISSING_FIELD",
+				"description": "a required field was not provided",
+				"details": map[string]any{
+					"field": "password",
+				},
+			},
+		)
+
+		return
+	}
+
+	if strings.TrimSpace(*body.Password) == "" {
+		respondJSON(
+			log, w,
+			http.StatusUnprocessableEntity,
+			map[string]string{
+				"error":       "INVALID_PASSWORD",
+				"description": "the provided password was invalid",
+			},
 		)
 
 		return
@@ -226,7 +292,7 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 		from identity
 		where username = $1
 		`,
-		body.Username,
+		*body.Username,
 	)
 
 	var (
@@ -237,10 +303,13 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 	err = row.Scan(&id, &passwordHash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			safeRespondJSON(
+			respondJSON(
 				log, w,
-				http.StatusUnprocessableEntity,
-				map[string]string{"error": "no identity registered with provided username"},
+				http.StatusUnauthorized,
+				map[string]string{
+					"error":       "USER_NOT_FOUND",
+					"description": "no identity registered with provided username",
+				},
 			)
 
 			return
@@ -251,21 +320,19 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
-	err = argon2id.CompareHashAndPassword(passwordHash, []byte(body.Password))
+	err = argon2id.CompareHashAndPassword(passwordHash, []byte(*body.Password))
 	if err != nil {
-		safeRespondJSON(
+		respondJSON(
 			log, w,
 			http.StatusUnauthorized,
-			map[string]string{"error": "username password combination was incorrect"},
+			map[string]string{
+				"error":       "PASSWORD_INCORRECT",
+				"description": "username password combination was incorrect",
+			},
 		)
 
 		return
@@ -282,12 +349,7 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -308,16 +370,11 @@ func (s *Server) postSessions(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
-	safeRespondJSON(
+	respondJSON(
 		log, w,
 		http.StatusOK,
 		map[string]any{
@@ -342,12 +399,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -371,10 +423,13 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 	err = row.Scan(&id, &expiresIn)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			safeRespondJSON(
+			respondJSON(
 				log, w,
 				http.StatusNotFound,
-				map[string]string{"error": "no valid session found for token"},
+				map[string]string{
+					"error":       "SESSION_NOT_FOUND",
+					"description": "no valid session found for token",
+				},
 			)
 
 			return
@@ -388,7 +443,7 @@ func (s *Server) getSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	safeRespondJSON(
+	respondJSON(
 		log, w,
 		http.StatusOK,
 		map[string]any{
@@ -412,12 +467,7 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -437,12 +487,7 @@ func (s *Server) deleteSession(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -456,7 +501,7 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var body struct {
-		Username string
+		Username *string
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -466,22 +511,29 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
 			map[string]string{
-				"error": "request body could not be decoded",
+				"error":       "INVALID_BODY",
+				"description": "request body could not be decoded",
 			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Username) == "" {
-		safeRespondJSON(
+	if body.Username == nil {
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
-			map[string]string{"error": "username cannot be empty"},
+			map[string]any{
+				"error":       "MISSING_FIELD",
+				"description": "a required field was not provided",
+				"details": map[string]any{
+					"field": "username",
+				},
+			},
 		)
 
 		return
@@ -498,12 +550,7 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -514,7 +561,7 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 		values ($1, (select id from identity where username = $2), $3)
 		`,
 		base64.RawStdEncoding.EncodeToString(mac.Sum(nil)),
-		body.Username,
+		*body.Username,
 		time.Now().Add(expiresIn).UTC(),
 	)
 
@@ -525,10 +572,13 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 			pgErr.ColumnName == "identity" &&
 			pgErr.TableName == "reset" {
 
-			safeRespondJSON(
+			respondJSON(
 				log, w,
 				http.StatusUnprocessableEntity,
-				map[string]string{"error": "no identity registered with provided username"},
+				map[string]string{
+					"error":       "USER_NOT_FOUND",
+					"description": "no identity registered with provided username",
+				},
 			)
 
 			return
@@ -539,16 +589,11 @@ func (s *Server) postResets(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
-	safeRespondJSON(
+	respondJSON(
 		log, w,
 		http.StatusAccepted,
 		map[string]any{
@@ -565,7 +610,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 	)
 
 	var body struct {
-		Password string
+		Password *string
 	}
 
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -575,40 +620,39 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
+		respondJSON(
 			log, w,
 			http.StatusBadRequest,
 			map[string]string{
-				"error": "request body could not be decoded",
+				"error":       "INVALID_BODY",
+				"description": "request body could not be decoded",
 			},
 		)
 
 		return
 	}
 
-	if strings.TrimSpace(body.Password) == "" {
-		safeRespondJSON(
+	if strings.TrimSpace(*body.Password) == "" {
+		respondJSON(
 			log, w,
-			http.StatusBadRequest,
-			map[string]string{"error": "password cannot be empty"},
+			http.StatusUnprocessableEntity,
+			map[string]string{
+				"error":       "INVALID_PASSWORD",
+				"description": "the provided password was invalid",
+			},
 		)
 
 		return
 	}
 
-	hash, err := argon2id.GenerateFromPassword([]byte(body.Password), argon2id.OWASPMinimumParameters())
+	hash, err := argon2id.GenerateFromPassword([]byte(*body.Password), argon2id.OWASPMinimumParameters())
 	if err != nil {
 		log.Error(
 			"failed to generate hash from password",
 			"err", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -619,12 +663,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"err", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -638,12 +677,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -668,12 +702,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"errir", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -694,12 +723,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -719,12 +743,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		safeRespondJSON(
-			log, w,
-			http.StatusInternalServerError,
-			map[string]string{"error": "an internal server error occurred"},
-		)
-
+		respondInternalServerError(log, w)
 		return
 	}
 
@@ -733,7 +752,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func safeRespondJSON(log *slog.Logger, w http.ResponseWriter, code int, data any) {
+func respondJSON(log *slog.Logger, w http.ResponseWriter, code int, data any) {
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(data); err != nil {
 		log.Error(
@@ -750,6 +769,22 @@ func safeRespondJSON(log *slog.Logger, w http.ResponseWriter, code int, data any
 	w.WriteHeader(code)
 
 	if _, err := w.Write(buf.Bytes()); err != nil {
+		log.Error(
+			"failed to write response",
+			"error", err.Error(),
+		)
+	}
+}
+
+var (
+	internalServerError = []byte(`{"error":"INTERNAL_ERROR","description":"an internal server error occurred"}`)
+)
+
+func respondInternalServerError(log *slog.Logger, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+
+	if _, err := w.Write(internalServerError); err != nil {
 		log.Error(
 			"failed to write response",
 			"error", err.Error(),
