@@ -699,7 +699,7 @@ func (s *Server) putReset(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Error(
 			"failed to update password in database",
-			"errir", err.Error(),
+			"error", err.Error(),
 		)
 
 		respondInternalServerError(log, w)
