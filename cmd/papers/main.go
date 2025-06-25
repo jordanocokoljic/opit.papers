@@ -56,9 +56,15 @@ func main() {
 	identities := services.NewIdentities(pool)
 
 	jrpc.RegisterMethod(
-		&server, "identities.v1/createIdentity",
+		&server, "v1:createIdentity",
 		jrpc.Transform[services.CreateIdentityRequest],
 		identities.CreateIdentity,
+	)
+
+	jrpc.RegisterMethod(
+		&server, "v1:verifyCredentials",
+		jrpc.Transform[services.VerifyCredentialsRequest],
+		identities.VerifyCredentials,
 	)
 
 	http.ListenAndServe(":51876", &server)

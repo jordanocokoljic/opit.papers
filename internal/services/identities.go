@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jordanocokoljic/argon2id"
@@ -85,6 +86,52 @@ func (i *Identities) CreateIdentity(
 		)
 
 		return jrpc.Error(http.StatusInternalServerError, "SERVER_ERROR")
+	}
+
+	return jrpc.JSON(map[string]string{"id": id.String()})
+}
+
+type VerifyCredentialsRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (i *Identities) VerifyCredentials(
+	ctx context.Context, log *slog.Logger,
+	request *VerifyCredentialsRequest,
+) jrpc.Response {
+	row := i.db.QueryRow(
+		ctx,
+		`
+		select id, password
+		from identity
+		where username = $1
+		`,
+		request.Username,
+	)
+
+	var (
+		id   uuid.UUID
+		hash []byte
+	)
+
+	err := row.Scan(&id, &hash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return jrpc.Error(http.StatusBadRequest, "USER_NOT_FOUND")
+		}
+
+		log.Error(
+			"failed to query database for id and password hash",
+			"error", err.Error(),
+		)
+
+		return jrpc.Error(http.StatusInternalServerError, "SERVER_ERROR")
+	}
+
+	err = argon2id.CompareHashAndPassword(hash, []byte(request.Password))
+	if err != nil {
+		return jrpc.Error(http.StatusBadRequest, "PASSWORD_INCORRECT")
 	}
 
 	return jrpc.JSON(map[string]string{"id": id.String()})
