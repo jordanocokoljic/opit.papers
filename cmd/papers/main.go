@@ -2,40 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 
 	uuid "github.com/jackc/pgx-gofrs-uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jordanocokoljic/opit.papers/internal/web"
+	"github.com/jordanocokoljic/opit.papers/internal/jrpc"
+	"github.com/jordanocokoljic/opit.papers/internal/services"
 )
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
-	envHMACKey, ok := os.LookupEnv("PAPERS_HMAC_KEY")
-	if !ok {
-		logger.Error(
-			"required environment variable was not set",
-			"variable", "PAPERS_HMAC_KEY",
-		)
-
-		os.Exit(1)
-	}
-
-	hmacKey, err := hex.DecodeString(envHMACKey)
-	if err != nil {
-		logger.Error(
-			"failed to decode provided hmac key",
-			"error", err.Error(),
-		)
-
-		os.Exit(1)
-	}
 
 	envPostgresURL, ok := os.LookupEnv("PAPERS_PG_URL")
 	if !ok {
@@ -72,40 +51,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	serverConfig := web.DefaultServerConfiguration()
+	server := jrpc.NewServer(logger)
 
-	if envSessionLifetime, ok := os.LookupEnv("PAPERS_SESSION_LIFETIME"); ok {
-		lifetime, err := time.ParseDuration(envSessionLifetime)
-		if err != nil {
-			logger.Error(
-				"failed to parse provided session lifetime",
-				"error", err.Error(),
-			)
+	identities := services.NewIdentities(pool)
 
-			os.Exit(1)
-		}
+	jrpc.RegisterMethod(
+		&server, "identities.v1/createIdentity",
+		jrpc.Transform[services.CreateIdentityRequest],
+		identities.CreateIdentity,
+	)
 
-		serverConfig.SessionLifetime = lifetime
-	}
-
-	if envResetLifetime, ok := os.LookupEnv("PAPERS_RESET_LIFETIME"); ok {
-		lifetime, err := time.ParseDuration(envResetLifetime)
-		if err != nil {
-			logger.Error(
-				"failed to parse provided reset lifetime",
-				"error", err.Error(),
-			)
-
-			os.Exit(1)
-		}
-
-		serverConfig.ResetLifetime = lifetime
-	}
-
-	server := web.NewServer(logger, pool, hmacKey, serverConfig)
-
-	mux := http.NewServeMux()
-	server.Bind(mux)
-
-	http.ListenAndServe(":51876", mux)
+	http.ListenAndServe(":51876", &server)
 }
