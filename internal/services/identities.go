@@ -133,7 +133,7 @@ func (i *Identities) VerifyCredentials(
 	err := row.Scan(&id, &hash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return jrpc.Error(http.StatusBadRequest, "USER_NOT_FOUND")
+			return jrpc.Error(http.StatusUnprocessableEntity, "USER_NOT_FOUND")
 		}
 
 		log.Error(
