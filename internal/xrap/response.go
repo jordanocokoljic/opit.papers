@@ -1,4 +1,4 @@
-package xrpc
+package xrap
 
 import (
 	"encoding/json"
@@ -25,4 +25,8 @@ func (jr jsonResponse) respond(w http.ResponseWriter) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(out)
+}
+
+func Finalize(w http.ResponseWriter, r Response) {
+	r.respond(w)
 }

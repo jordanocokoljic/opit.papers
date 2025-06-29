@@ -3,6 +3,8 @@ package xrpc
 import (
 	"io"
 	"net/http"
+
+	"github.com/jordanocokoljic/opit.papers/internal/xrap"
 )
 
 type Server struct {
@@ -41,12 +43,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, err := proc.transform(body)
+	request, err := proc.transform(r.Header, body)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"error":{"code":"XRPC_TRANSFORM_FAILURE"}}`))
 		return
 	}
 
-	proc.apply(request).respond(w)
+	xrap.Finalize(w, proc.apply(request))
 }
