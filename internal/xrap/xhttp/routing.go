@@ -2,6 +2,7 @@ package xhttp
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -15,7 +16,15 @@ func Register[T any](s *Server, pattern string, t Transform[T], a Apply[T]) {
 	s.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		request, err := t(r)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			switch n := err.(type) {
+			case ConvertibleError:
+				w.WriteHeader(n.status)
+				w.Write(n.message)
+			default:
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("Sorry, an internal server error occurred."))
+			}
+
 			return
 		}
 
@@ -24,6 +33,14 @@ func Register[T any](s *Server, pattern string, t Transform[T], a Apply[T]) {
 }
 
 func TransformJSON[T any](r *http.Request) (*T, error) {
+	if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+		return nil, ConvertibleError{
+			inner:   errors.New("incorrect Content-Type for TransformJson"),
+			status:  http.StatusUnsupportedMediaType,
+			message: []byte("415 Unsupported Media Type"),
+		}
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
