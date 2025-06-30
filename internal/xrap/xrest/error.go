@@ -1,4 +1,4 @@
-package xhttp
+package xrest
 
 type ConvertibleError struct {
 	inner   error

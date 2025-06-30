@@ -1,13 +1,18 @@
-package xhttp
+package xrest
 
-import "net/http"
+import (
+	"log/slog"
+	"net/http"
+)
 
 type Server struct {
+	log *slog.Logger
 	mux *http.ServeMux
 }
 
-func NewServer() Server {
+func NewServer(log *slog.Logger) Server {
 	return Server{
+		log: log,
 		mux: http.NewServeMux(),
 	}
 }

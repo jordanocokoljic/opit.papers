@@ -1,37 +1,64 @@
 package main
 
 import (
+	"context"
+	"log/slog"
 	"net/http"
+	"os"
 
-	"github.com/jordanocokoljic/opit.papers/internal/xrap"
-	"github.com/jordanocokoljic/opit.papers/internal/xrap/xhttp"
+	uuid "github.com/jackc/pgx-gofrs-uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jordanocokoljic/opit.papers/internal/papers"
+	"github.com/jordanocokoljic/opit.papers/internal/xrap/xrest"
 )
 
-type Action struct {
-	Action string `json:"action"`
-}
-
 func main() {
-	// server := xrpc.NewServer()
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	// xrpc.Register(
-	// 	&server, "do",
-	// 	xrpc.TransformJSON,
-	// 	func(request *Action) xrap.Response {
-	// 		return xrap.JSON(map[string]string{"did": request.Action})
-	// 	},
-	// )
+	envPostgresURL, ok := os.LookupEnv("PAPERS_PG_URL")
+	if !ok {
+		logger.Error(
+			"required environment variable was not set",
+			"variable", "PAPERS_PG_URL",
+		)
 
-	server := xhttp.NewServer()
+		os.Exit(1)
+	}
 
-	xhttp.Register(
-		&server, "POST /do",
-		xhttp.TransformJSON,
-		func(request *Action) xrap.Response {
-			return xrap.JSON(map[string]string{
-				"did": request.Action,
-			})
-		},
+	poolConfig, err := pgxpool.ParseConfig(envPostgresURL)
+	if err != nil {
+		logger.Error(
+			"failed to parse postgres connection string",
+			"error", err.Error(),
+		)
+
+		os.Exit(1)
+	}
+
+	poolConfig.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
+		uuid.Register(c.TypeMap())
+		return nil
+	}
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	if err != nil {
+		logger.Error(
+			"failed to connect to postgres database",
+			"error", err.Error(),
+		)
+
+		os.Exit(1)
+	}
+
+	service := papers.NewService(pool)
+
+	server := xrest.NewServer(logger)
+
+	xrest.Register(
+		&server, "POST /identities",
+		xrest.TransformJSON,
+		service.CreateIdentity,
 	)
 
 	http.ListenAndServe(":8080", &server)

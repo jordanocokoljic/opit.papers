@@ -50,5 +50,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	xrap.Finalize(w, proc.apply(request))
+	result := proc.apply(r.Context(), request)
+
+	var ra resultAdapter
+	err = xrap.Finalize(&ra, result)
+	if err != nil {
+		// TODO: handle the case that we can't build the response
+		return
+	}
+
+	ra.write(w)
 }

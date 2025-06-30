@@ -1,6 +1,7 @@
-package xhttp
+package xrest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,11 +11,14 @@ import (
 )
 
 type Transform[T any] func(request *http.Request) (*T, error)
-type Apply[T any] func(request *T) xrap.Response
+type Apply[T any] func(ctx context.Context, request *T) xrap.Result
 
-func Register[T any](s *Server, pattern string, t Transform[T], a Apply[T]) {
+func Register[T any](
+	s *Server, pattern string,
+	transform Transform[T], apply Apply[T],
+) {
 	s.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		request, err := t(r)
+		request, err := transform(r)
 		if err != nil {
 			switch n := err.(type) {
 			case ConvertibleError:
@@ -28,7 +32,17 @@ func Register[T any](s *Server, pattern string, t Transform[T], a Apply[T]) {
 			return
 		}
 
-		xrap.Finalize(w, a(request))
+		result := apply(r.Context(), request)
+
+		var ra resultAdapter
+		err = xrap.Finalize(&ra, result)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Sorry, an internal server error occurred."))
+			return
+		}
+
+		ra.write(w)
 	})
 }
 
