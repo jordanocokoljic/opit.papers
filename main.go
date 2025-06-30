@@ -24,6 +24,8 @@ func main() {
 				"failed to compile provided username regex",
 				"error", err.Error(),
 			)
+
+			os.Exit(1)
 		}
 
 		usernameRegex = compiled
@@ -37,6 +39,8 @@ func main() {
 				"failed to compile provided password regex",
 				"error", err.Error(),
 			)
+
+			os.Exit(1)
 		}
 
 		usernameRegex = compiled
