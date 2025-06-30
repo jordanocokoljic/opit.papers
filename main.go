@@ -43,7 +43,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		usernameRegex = compiled
+		passwordRegex = compiled
 	}
 
 	envPostgresURL, ok := os.LookupEnv("PAPERS_PG_URL")
