@@ -95,6 +95,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /identities", api.postIdentities)
+	mux.HandleFunc("POST /login", api.postLogin)
 
 	http.ListenAndServe(net.JoinHostPort("127.0.0.1", httpPort), mux)
 }

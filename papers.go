@@ -9,6 +9,7 @@ import (
 	"regexp"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jordanocokoljic/argon2id"
@@ -159,6 +160,114 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 		log, w,
 		http.StatusCreated,
 		map[string]string{"id": id.String()},
+	)
+}
+
+func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
+	log := s.log.With(
+		"method", r.Method,
+		"endpoint", r.URL.Path,
+	)
+
+	if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
+	var body struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	err := unmarshalBody(r.Body, &body)
+	if err != nil {
+		log.Warn(
+			"unable to decode request body",
+			"error", err.Error(),
+		)
+
+		respondJSON(
+			log, w,
+			http.StatusBadRequest,
+			map[string]string{
+				"error":  "BAD_REQUEST",
+				"detail": "request was unparsable",
+			},
+		)
+
+		return
+	}
+
+	row := s.db.QueryRow(
+		r.Context(),
+		`
+		select id, password_hash
+		from identity
+		where username = $1
+		`,
+		body.Username,
+	)
+
+	var (
+		id           uuid.UUID
+		passwordHash []byte
+	)
+
+	err = row.Scan(&id, &passwordHash)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			respondJSON(
+				log, w,
+				http.StatusUnauthorized,
+				map[string]string{
+					"error":  "USER_NOT_FOUND",
+					"detail": "no user registered with provided username",
+				},
+			)
+
+			return
+		}
+
+		log.Error(
+			"failed to query database for identity details",
+			"error", err.Error(),
+		)
+
+		internalServerError(w)
+		return
+	}
+
+	err = argon2id.CompareHashAndPassword(passwordHash, []byte(body.Password))
+	if err != nil {
+		if errors.Is(err, argon2id.ErrMismatchedHashAndPassword) {
+			respondJSON(
+				log, w,
+				http.StatusUnauthorized,
+				map[string]string{
+					"error":  "PASSWORD_INCORRECT",
+					"detail": "provided credentials were incorrect",
+				},
+			)
+
+			return
+		}
+
+		log.Error(
+			"password comparison failed unexpectedly",
+			"id", id.String(),
+			"error", err.Error(),
+		)
+
+		internalServerError(w)
+		return
+	}
+
+	respondJSON(
+		log, w,
+		http.StatusOK,
+		map[string]string{
+			"id": id.String(),
+		},
 	)
 }
 
