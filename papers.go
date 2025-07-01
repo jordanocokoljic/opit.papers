@@ -120,8 +120,8 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 	_, err = s.db.Exec(
 		r.Context(),
 		`
-		insert into identity (id, username, password_hash)
-		values ($1, $2, $3)
+		INSERT INTO identity (id, username, password_hash)
+		VALUES ($1, $2, $3)
 		`,
 		id,
 		body.Username,
@@ -201,9 +201,9 @@ func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
 	row := s.db.QueryRow(
 		r.Context(),
 		`
-		select id, password_hash
-		from identity
-		where username = $1
+		SELECT id, password_hash
+		FROM identity
+		WHERE username = $1
 		`,
 		body.Username,
 	)
