@@ -229,8 +229,8 @@ func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
 				log, w,
 				http.StatusUnauthorized,
 				map[string]string{
-					"error":  "USER_NOT_FOUND",
-					"detail": "no user registered with provided username",
+					"error":  "IDENTITY_NOT_FOUND",
+					"detail": "no identity registered with provided username",
 				},
 			)
 
@@ -342,13 +342,13 @@ func (s *server) postResets(w http.ResponseWriter, r *http.Request) {
 	)
 
 	if err != nil {
-		if isUserNotFound(err) {
+		if isIdentityNotFound(err) {
 			respondJSON(
 				log, w,
 				http.StatusUnprocessableEntity,
 				map[string]string{
-					"error":  "USER_NOT_FOUND",
-					"detail": "no user registered with provided username",
+					"error":  "IDENTITY_NOT_FOUND",
+					"detail": "no identity registered with provided username",
 				},
 			)
 
@@ -525,7 +525,7 @@ func isUsernameTaken(err error) bool {
 		pgErr.ConstraintName == "identity_username_key"
 }
 
-func isUserNotFound(err error) bool {
+func isIdentityNotFound(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) &&
 		pgErr.Code == "23502" &&
