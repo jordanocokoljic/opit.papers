@@ -18,7 +18,7 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
-	usernameRegex := regexp.MustCompile(`^.{1,}$`)
+	usernameRegex := regexp.MustCompile(`^\S{1,}$`)
 	if envRegex, ok := os.LookupEnv("PAPERS_USERNAME_REGEX"); ok {
 		compiled, err := regexp.Compile(envRegex)
 		if err != nil {
@@ -33,7 +33,7 @@ func main() {
 		usernameRegex = compiled
 	}
 
-	passwordRegex := regexp.MustCompile(`^.{8,}$`)
+	passwordRegex := regexp.MustCompile(`^\S{8,}$`)
 	if envRegex, ok := os.LookupEnv("PAPERS_PASSWORD_REGEX"); ok {
 		compiled, err := regexp.Compile(envRegex)
 		if err != nil {
