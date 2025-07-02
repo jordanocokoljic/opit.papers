@@ -55,15 +55,7 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		respondJSON(
-			log, w,
-			http.StatusBadRequest,
-			map[string]string{
-				"error":  "BAD_REQUEST",
-				"detail": "request was unparsable",
-			},
-		)
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -76,10 +68,7 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 		respondJSON(
 			log, w,
 			http.StatusUnprocessableEntity,
-			map[string]string{
-				"error":  "INVALID_USERNAME",
-				"detail": "provided username was invalid",
-			},
+			map[string]string{"error": "INVALID_USERNAME"},
 		)
 
 		return
@@ -91,10 +80,7 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 		respondJSON(
 			log, w,
 			http.StatusUnprocessableEntity,
-			map[string]string{
-				"error":  "INVALID_PASSWORD",
-				"detail": "provided password was invalid",
-			},
+			map[string]string{"error": "INVALID_PASSWORD"},
 		)
 
 		return
@@ -147,10 +133,7 @@ func (s *server) postIdentities(w http.ResponseWriter, r *http.Request) {
 			respondJSON(
 				log, w,
 				http.StatusConflict,
-				map[string]string{
-					"error":  "USERNAME_TAKEN",
-					"detail": "provided username is already in use",
-				},
+				map[string]string{"error": "USERNAME_TAKEN"},
 			)
 
 			return
@@ -195,15 +178,7 @@ func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		respondJSON(
-			log, w,
-			http.StatusBadRequest,
-			map[string]string{
-				"error":  "BAD_REQUEST",
-				"detail": "request was unparsable",
-			},
-		)
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -228,10 +203,7 @@ func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
 			respondJSON(
 				log, w,
 				http.StatusUnauthorized,
-				map[string]string{
-					"error":  "IDENTITY_NOT_FOUND",
-					"detail": "no identity registered with provided username",
-				},
+				map[string]string{"error": "IDENTITY_NOT_FOUND"},
 			)
 
 			return
@@ -252,10 +224,7 @@ func (s *server) postLogin(w http.ResponseWriter, r *http.Request) {
 			respondJSON(
 				log, w,
 				http.StatusUnauthorized,
-				map[string]string{
-					"error":  "PASSWORD_INCORRECT",
-					"detail": "provided credentials were incorrect",
-				},
+				map[string]string{"error": "PASSWORD_INCORRECT"},
 			)
 
 			return
@@ -302,15 +271,7 @@ func (s *server) postResets(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		respondJSON(
-			log, w,
-			http.StatusBadRequest,
-			map[string]string{
-				"error":  "BAD_REQUEST",
-				"detail": "request was unparsable",
-			},
-		)
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -346,10 +307,7 @@ func (s *server) postResets(w http.ResponseWriter, r *http.Request) {
 			respondJSON(
 				log, w,
 				http.StatusUnprocessableEntity,
-				map[string]string{
-					"error":  "IDENTITY_NOT_FOUND",
-					"detail": "no identity registered with provided username",
-				},
+				map[string]string{"error": "IDENTITY_NOT_FOUND"},
 			)
 
 			return
@@ -388,15 +346,7 @@ func (s *server) putResets(w http.ResponseWriter, r *http.Request) {
 			"error", err.Error(),
 		)
 
-		respondJSON(
-			log, w,
-			http.StatusBadRequest,
-			map[string]string{
-				"error":       "INVALID_BODY",
-				"description": "request body could not be decoded",
-			},
-		)
-
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -406,10 +356,7 @@ func (s *server) putResets(w http.ResponseWriter, r *http.Request) {
 		respondJSON(
 			log, w,
 			http.StatusUnprocessableEntity,
-			map[string]string{
-				"error":  "INVALID_PASSWORD",
-				"detail": "provided password was invalid",
-			},
+			map[string]string{"error": "INVALID_PASSWORD"},
 		)
 
 		return
@@ -485,10 +432,7 @@ func (s *server) putResets(w http.ResponseWriter, r *http.Request) {
 		respondJSON(
 			log, w,
 			http.StatusNotFound,
-			map[string]string{
-				"error":  "RESET_NOT_FOUND",
-				"detail": "provided reset token was invalid",
-			},
+			map[string]string{"error": "RESET_NOT_FOUND"},
 		)
 
 		return
